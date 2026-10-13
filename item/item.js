@@ -1,43 +1,62 @@
-// function sanitizeText(text) {
-//     return text.replace(/<[^>]*>/g, "").trim();
-// }
+function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 function sanitizeText(text) {
     if (!text) return "";
 
     const textColorMap = {
-    STELLAR: "stellar-text",       // pale yellow
-    COMMODITY: "commodity-text",   // gold
-    TECHNOLOGY: "technology-text", // light blue
-    EARTH: "earth-text",           // slightly less blue
-    FUEL: "fuel-text",             // bright red
-    WARNING: "warning-text",       // pale red
-    VAL_ON: "val-on-text",         // bold?
+        STELLAR: "stellar-text",       // pale yellow
+        COMMODITY: "commodity-text",   // gold
+        TECHNOLOGY: "technology-text", // light blue
+        EARTH: "earth-text",           // slightly less blue
+        FUEL: "fuel-text",             // bright red
+        WARNING: "warning-text",       // pale red
+        VAL_ON: "val-on-text",         // bold?
     };
 
-    // TODO
     const imgIconMap = {
         // QUICK_MENU: "/assets/icons/letter-x.png"
     };
 
-    // Replace image/icon references: <IMG>KEY<>
-    text = text.replace(/<IMG>([^<>]+)<>/g, (match, key) => {
+    // First extract custom game tags to avoid escaping them as arbitrary HTML
+    // Tokenize <IMG>KEY<> and <TAG>Text<>
+    const tokens = [];
+    let processed = text.replace(/<IMG>([^<>]+)<>/g, (match, key) => {
+        const token = `__IMG_TOKEN_${tokens.length}__`;
         const src = imgIconMap[key];
-        return src ? `<img src="${src}" alt="${key}" class="inline-icon">` : key;
+        const safeKey = escapeHtml(key);
+        const replacement = src ? `<img src="${encodeURI(src)}" alt="${safeKey}" class="inline-icon">` : safeKey;
+        tokens.push({ token, replacement });
+        return token;
     });
 
-    // Replace tagged color text: <TAG>Text<>
-    text = text.replace(/<([A-Z_]+)>([^<>]+)<>/g, (match, tag, content) => {
-        if (textColorMap[tag]) {
-            return `<span class="${textColorMap[tag]}">${content}</span>`;
-        } else {
-        return `<span class="unmapped-tag">${content}</span>`;
-        }
+    processed = processed.replace(/<([A-Z_]+)>([^<>]+)<>/g, (match, tag, content) => {
+        const token = `__TAG_TOKEN_${tokens.length}__`;
+        const safeContent = escapeHtml(content);
+        const className = textColorMap[tag] ? textColorMap[tag] : "unmapped-tag";
+        const replacement = `<span class="${className}">${safeContent}</span>`;
+        tokens.push({ token, replacement });
+        return token;
     });
 
-    text = text.replace(/\s?\([A-Z_]+\)/g, "");
+    // Escape any remaining raw HTML characters
+    processed = escapeHtml(processed);
 
-    return text.trim();
+    // Re-insert safe replacements
+    tokens.forEach(({ token, replacement }) => {
+        processed = processed.replace(token, replacement);
+    });
+
+    processed = processed.replace(/\s?\([A-Z_]+\)/g, "");
+
+    return processed.trim();
 }
 
 function getQueryParams() {
@@ -719,28 +738,30 @@ function createBaitSection(itemId, baitData) {
     // Used For
     if (baitItem.UsedFor) {
         const usedFor = document.createElement("p");
-        usedFor.innerHTML = `<strong>Used For:</strong> ${baitItem.UsedFor}`;
+        usedFor.innerHTML = `<strong>Used For:</strong> ${escapeHtml(baitItem.UsedFor)}`;
         card.appendChild(usedFor);
     }
 
     // Rarity
     if (baitItem.RarityPercent) {
         const rarity = document.createElement("p");
-        rarity.innerHTML = `<strong>Rarity:</strong> ${baitItem.RarityPercent}%`;
+        rarity.innerHTML = `<strong>Rarity:</strong> ${escapeHtml(baitItem.RarityPercent)}%`;
         card.appendChild(rarity);
     }
 
     // Size
     if (baitItem.SizePercent) {
         const size = document.createElement("p");
-        size.innerHTML = `<strong>Size:</strong> ${baitItem.SizePercent}%`;
+        size.innerHTML = `<strong>Size:</strong> ${escapeHtml(baitItem.SizePercent)}%`;
         card.appendChild(size);
     }
 
     // Source link (if Source and Title are valid)
     if (baitItem.Source && baitItem.Title) {
         const source = document.createElement("p");
-        source.innerHTML = `<strong>Source:</strong> <a href="/item/?id=${baitItem.Source}&type=product">${baitItem.Source}</a>`;
+        const safeSourceParam = encodeURIComponent(baitItem.Source);
+        const safeSourceText = escapeHtml(baitItem.Source);
+        source.innerHTML = `<strong>Source:</strong> <a href="/item/?id=${safeSourceParam}&type=product">${safeSourceText}</a>`;
         card.appendChild(source);
     }
 
