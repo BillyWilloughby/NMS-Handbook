@@ -25,31 +25,27 @@ function sanitizeText(text) {
         // QUICK_MENU: "/assets/icons/letter-x.png"
     };
 
-    // First extract custom game tags to avoid escaping them as arbitrary HTML
-    // Tokenize <IMG>KEY<> and <TAG>Text<>
     const tokens = [];
-    let processed = text.replace(/<IMG>([^<>]+)<>/g, (match, key) => {
-        const token = `__IMG_TOKEN_${tokens.length}__`;
-        const src = imgIconMap[key];
-        const safeKey = escapeHtml(key);
-        const replacement = src ? `<img src="${encodeURI(src)}" alt="${safeKey}" class="inline-icon">` : safeKey;
-        tokens.push({ token, replacement });
-        return token;
-    });
+    let processed = text
+        .replace(/<IMG>([^<>]+)<>/g, (match, key) => {
+            const token = `__IMG_TOKEN_${tokens.length}__`;
+            const src = imgIconMap[key];
+            const safeKey = escapeHtml(key);
+            const replacement = src ? `<img src="${encodeURI(src)}" alt="${safeKey}" class="inline-icon">` : safeKey;
+            tokens.push({ token, replacement });
+            return token;
+        })
+        .replace(/<([A-Z_]+)>([^<>]+)<>/g, (match, tag, content) => {
+            const token = `__TAG_TOKEN_${tokens.length}__`;
+            const safeContent = escapeHtml(content);
+            const className = textColorMap[tag] || "unmapped-tag";
+            const replacement = `<span class="${className}">${safeContent}</span>`;
+            tokens.push({ token, replacement });
+            return token;
+        });
 
-    processed = processed.replace(/<([A-Z_]+)>([^<>]+)<>/g, (match, tag, content) => {
-        const token = `__TAG_TOKEN_${tokens.length}__`;
-        const safeContent = escapeHtml(content);
-        const className = textColorMap[tag] ? textColorMap[tag] : "unmapped-tag";
-        const replacement = `<span class="${className}">${safeContent}</span>`;
-        tokens.push({ token, replacement });
-        return token;
-    });
-
-    // Escape any remaining raw HTML characters
     processed = escapeHtml(processed);
 
-    // Re-insert safe replacements
     tokens.forEach(({ token, replacement }) => {
         processed = processed.replace(token, replacement);
     });
