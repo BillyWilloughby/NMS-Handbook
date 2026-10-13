@@ -1,0 +1,17 @@
+# macOS metadata
+.DS_Store
+
+# Byte-compiled Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Distribution/build directories
+build/
+dist/
+*.egg-info/
+
+# Python virtual environments
+env/
+venv/
